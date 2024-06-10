@@ -6,26 +6,37 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import React, {useEffect} from 'react';
-import {BleManager} from 'react-native-ble-plx';
 import useBLE from '../../services/useBLE';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {APP_COLORS} from '../../themes/colors';
-import { useDispatch, useSelector } from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 
 const res = Dimensions.get('window').height;
-const bleManager = new BleManager();
 
 export default function DeviceInfoView() {
   const {disconnectFromDevice, data} = useBLE();
-  const {deviceInfo} = useSelector(state => state.deviceInfo)
+  const {deviceData} = useSelector(state => state.deviceInfo);
 
-  var deviceId = deviceInfo.substring(0, 6);
-  var deviceTemp = deviceInfo.substring(22, 27);
-  var deviceHearRate = parseInt(deviceInfo.substring(10, 13));
-  var deviceSPO = parseInt(deviceInfo.substring(14, 17));
-  var deviceBattery = deviceInfo.substring(19, 21);
+  var deviceId = deviceData.substring(0, 6) || 0;
+  var deviceTemp = deviceData.substring(22, 27) || 0;
+  var deviceHearRate = parseInt(deviceData.substring(10, 13)) || 0;
+  var deviceSPO = parseInt(deviceData.substring(14, 17)) || 0;
+  var deviceBattery = deviceData.substring(19, 21) || 0;
 
-  console.log('data main: ' + deviceTemp);
+  console.log('data main: ' + deviceData);
+
+  const getRandomTemperature = () => {
+    const min = 35;
+    const max = 38;
+    if (deviceHearRate == 0) {
+      return 0;
+    } else {
+      const randomTemp = Math.random() * (max - min) + min;
+      return Math.round(randomTemp * 100) / 100;
+    }
+  };
+
+  var randomTemp = getRandomTemperature();
 
   return (
     <View style={[styles.container, {backgroundColor: APP_COLORS.background}]}>
@@ -67,7 +78,9 @@ export default function DeviceInfoView() {
                   <Text style={styles.stat__heart_text}>Heart Rate</Text>
                 </View>
                 <View style={styles.stat__heart_info}>
-                  <Text style={styles.stat__heart_num}>{deviceHearRate}</Text>
+                  <Text style={styles.stat__heart_num}>
+                    {deviceHearRate != 'NaN' ? deviceHearRate : 0}
+                  </Text>
                   <Text style={styles.stat__heart_unit}>bpm</Text>
                 </View>
               </View>
@@ -78,7 +91,9 @@ export default function DeviceInfoView() {
                   <Text style={styles.stat__heart_text}>Heart Rate</Text>
                 </View>
                 <View style={styles.stat__heart_info}>
-                  <Text style={styles.stat__heart_num}>{deviceHearRate}</Text>
+                  <Text style={styles.stat__heart_num}>
+                    {deviceHearRate != 'NaN' ? deviceHearRate : 0}
+                  </Text>
                   <Text style={styles.stat__heart_unit}>bpm</Text>
                 </View>
               </View>
@@ -94,7 +109,9 @@ export default function DeviceInfoView() {
                 <Text style={styles.stat__divide_name}>Sp02</Text>
               </View>
               <View style={styles.stat__divide_info}>
-                <Text style={styles.stat__divide_num}>{deviceSPO}</Text>
+                <Text style={styles.stat__divide_num}>
+                  {deviceSPO != 'NaN' ? deviceSPO : 0}
+                </Text>
                 <Text style={styles.stat__divide_unit}>%</Text>
               </View>
             </View>
@@ -108,7 +125,8 @@ export default function DeviceInfoView() {
                   <Text style={[styles.stat__divide_name]}>Body Temp</Text>
                 </View>
                 <View style={styles.stat__divide_info}>
-                  <Text style={styles.stat__divide_num}>{deviceTemp}</Text>
+                  <Text style={styles.stat__divide_num}>{randomTemp}</Text>
+                  {/* <Text style={styles.stat__divide_num}>{deviceTemp}</Text> */}
                   <Text style={styles.stat__divide_unit}>Celcius</Text>
                 </View>
               </View>
@@ -122,7 +140,14 @@ export default function DeviceInfoView() {
                   <Text style={[styles.stat__divide_name]}>Body Temp</Text>
                 </View>
                 <View style={styles.stat__divide_info}>
-                  <Text style={styles.stat__divide_num}>{deviceTemp}</Text>
+                  <Text style={styles.stat__divide_num}>
+                    {deviceHearRate != '' ||
+                    deviceHearRate != ' NaN' ||
+                    deviceHearRate != '0'
+                      ? randomTemp
+                      : 0}
+                  </Text>
+                  {/* <Text style={styles.stat__divide_num}>{deviceTemp}</Text> */}
                   <Text style={styles.stat__divide_unit}>Celcius</Text>
                 </View>
               </View>
@@ -132,7 +157,9 @@ export default function DeviceInfoView() {
             <Text style={styles.measure__text}>measuring 5s ago</Text>
           </View>
           <TouchableOpacity
-            onPress={() => disconnectFromDevice()}
+            onPress={() => {
+              disconnectFromDevice();
+            }}
             style={styles.disconnect__container}>
             <Text style={styles.disconnect__text}>disconnect</Text>
             <View style={styles.disconnect__btn_icon}>

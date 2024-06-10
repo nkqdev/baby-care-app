@@ -29,6 +29,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import GetClassesModel from '../../components/modals/GetClassesModel';
 import {APP_COLORS} from '../../themes/colors';
 import DeviceInfoView from '../device_info/device_info_view';
+import {useSelector} from 'react-redux';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const res = Dimensions.get('window').height;
@@ -54,6 +55,7 @@ const HomeView = ({
     clearDevices,
     totalDevices,
   } = useBLE();
+  const {deviceInfo} = useSelector(state => state.deviceInfo);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGetClassVisibal, setGetClassVisible] = useState(false);
   const [classIdChose, setClassIdChose] = useState('');
@@ -112,6 +114,8 @@ const HomeView = ({
   const formattedHours = hours % 12 || 12;
   const timeString = `${formattedHours}:${minutes}`;
 
+  console.log(allDevices.length);
+
   //CHECK BLUETOOTH STATE
   useEffect(() => {
     const handleBleStateChange = newState => {
@@ -168,7 +172,7 @@ const HomeView = ({
     // navigation.navigate('GroupDevice');
     navigation.navigate('Group');
   };
-  
+
   //Calories - Donut chart
   const halfCircle = radius + strokeWidth;
   const circleCirumference = 2 * Math.PI * radius;
@@ -253,8 +257,8 @@ const HomeView = ({
   return (
     <View style={home_styles.container}>
       <View style={home_styles.container}>
-        {connectedDevice ? (
-         <DeviceInfoView></DeviceInfoView>
+        {deviceInfo ? (
+          <DeviceInfoView></DeviceInfoView>
         ) : (
           <View
             style={[
@@ -379,7 +383,7 @@ const HomeView = ({
                   ? {backgroundColor: APP_COLORS.darkblue}
                   : {backgroundColor: APP_COLORS.pink},
               ]}>
-              <View style={home_styles.welcome__btn}>
+              {/* <View style={home_styles.welcome__btn}>
                 <TouchableOpacity
                   style={[
                     home_styles.side__box,
@@ -400,8 +404,8 @@ const HomeView = ({
                     name="wechat"
                   />
                 </TouchableOpacity>
-              </View>
-              <View></View>
+              </View> */}
+              {/* <View></View>
               <View style={home_styles.welcome__btn}>
                 <TouchableOpacity
                   style={[
@@ -421,7 +425,7 @@ const HomeView = ({
                     name="groups"
                   />
                 </TouchableOpacity>
-              </View>
+              </View> */}
             </View>
           </View>
         )}

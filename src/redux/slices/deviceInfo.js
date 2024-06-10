@@ -2,6 +2,7 @@ import {createSlice} from '@reduxjs/toolkit';
 
 const initialState = {
   deviceInfo: '',
+  deviceData: '',
   isLoading: false,
 };
 
@@ -13,13 +14,14 @@ export const deviceInfoSlice = createSlice({
       state.isLoading = action.payload;
     },
     setDeviceInfo: (state, action) => {
-      state.deviceInfo = action.payload
+      state.deviceInfo = action.payload;
+    },
+    setDeviceData: (state, action) => {
+      state.deviceData = action.payload;
     },
   },
 });
 
-export const {
-  setIsLoading,
-  setDeviceInfo,
-} = deviceInfoSlice.actions;
+export const {setIsLoading, setDeviceInfo, setDeviceData} =
+  deviceInfoSlice.actions;
 export default deviceInfoSlice.reducer;

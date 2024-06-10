@@ -3,8 +3,8 @@ import {useState, useEffect} from 'react';
 import {PermissionsAndroid, Platform} from 'react-native';
 import {BleManager} from 'react-native-ble-plx';
 import {atob, btoa} from 'react-native-quick-base64';
-import {useDispatch} from 'react-redux';
-import { setDeviceInfo } from '../redux/slices/deviceInfo';
+import {useDispatch, useSelector} from 'react-redux';
+import {setDeviceData, setDeviceInfo} from '../redux/slices/deviceInfo';
 const IOT__UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const IOT__TX__CHARACTERISTIC = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 const IOT__RX__CHARACTERISTIC = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
@@ -16,7 +16,15 @@ function useBLE() {
   const [connectedDevice, setConnectedDevice] = useState(null);
   const [data, setData] = useState('');
   const dispatch = useDispatch();
+  const {deviceInfo} = useSelector(state => state.deviceInfo);
   // const {deviceInfoArray} = useDeviceInfo();
+
+  const initializeBleManager = () => {
+    // Kiểm tra nếu BleManager đã bị hủy thì khởi tạo lại
+    if (bleManager === null || bleManager === undefined) {
+        bleManager = new BleManager();
+    }
+}
 
   const requestPermissions = async cb => {
     if (Platform.OS === 'android') {
@@ -68,14 +76,14 @@ function useBLE() {
     try {
       console.log('CONNECTING TO DEVICE:', device.id);
       await bleManager.connectToDevice(device.id);
-      // isDuplicateDevice;
-      setConnectedDevice(device);
       // Stop device scan (assuming startScan and stopScan are functions in your component)
       stopScan();
       // Discover services and characteristics
       await device.discoverAllServicesAndCharacteristics();
       // Start streaming data (assuming startStreamingData is a function in your component)
       startStreamingData(device);
+      setConnectedDevice(device);
+      dispatch(setDeviceInfo(device.id));
       console.log('CONNECT SUCCESSFULLY');
     } catch (error) {
       console.error('Failed to connect to BLE device:', error);
@@ -98,11 +106,12 @@ function useBLE() {
     startScan();
 
     // Stop scanning when the component unmounts
-    return () => {
-      stopScan();
-      // Clear up resources when the component unmounts
-      bleManager.destroy();
-    };
+    // return () => {
+    //   console.log('!!!!!!!!!')
+    //   stopScan();
+    //   // Clear up resources when the component unmounts
+    //   bleManager.destroy();
+    // };
   }, [bleManager]);
 
   //CHECK BLUETOOTH STATE
@@ -128,18 +137,16 @@ function useBLE() {
   }, [bleManager]);
 
   const disconnectFromDevice = () => {
-    if (connectedDevice) {
-      deviceInfo = JSON.stringify(connectedDevice);
-      bleManager
-        .cancelDeviceConnection(deviceInfo.id)
-        .then(() => {
-          console.log('DISCONNECTED');
-          setConnectedDevice(null);
-          setData('');
-        })
-        .catch(error => {
-          console.log('Error when disconnect: ' + error.message);
-        });
+    try {
+      console.log('DISCONNECTED');
+      bleManager.cancelDeviceConnection(deviceInfo).then(result => {
+        console.log(result);
+        dispatch(setDeviceInfo(''));
+        setConnectedDevice('');
+        setData('');
+      });
+    } catch (error) {
+      setConnectedDevice('');
     }
   };
 
@@ -153,7 +160,8 @@ function useBLE() {
       return;
     }
     const rawData = atob(characteristic.value);
-    dispatch(setDeviceInfo(rawData))
+    console.log(rawData);
+    dispatch(setDeviceData(rawData));
     setData(rawData);
   };
 
