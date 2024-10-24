@@ -8,6 +8,9 @@ import {
   ScrollView,
   Alert,
   Dimensions,
+  Modal,
+  ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import DeviceModal from '../../components/modals/DeviceConnectionModal';
 import Loading from '../../components/Loading';
@@ -30,6 +33,8 @@ import GetClassesModel from '../../components/modals/GetClassesModel';
 import {APP_COLORS} from '../../themes/colors';
 import DeviceInfoView from '../device_info/device_info_view';
 import {useSelector} from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {useRoute} from '@react-navigation/native';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const res = Dimensions.get('window').height;
@@ -55,17 +60,21 @@ const HomeView = ({
     clearDevices,
     totalDevices,
   } = useBLE();
+  const route = useRoute();
   const {deviceInfo} = useSelector(state => state.deviceInfo);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGetClassVisibal, setGetClassVisible] = useState(false);
   const [classIdChose, setClassIdChose] = useState('');
   const [classNameChose, setClassNameChose] = useState('');
+  const [isHistoryVisible, setIsHistoryVisible] = useState(false);
+  const [devicesHistory, setDevicesHistory] = useState([]);
 
-  const deviceId = data.substring(0, 6);
-  const deviceTemp = data.substring(22, 27);
-  const deviceHearRate = parseInt(data.substring(10, 13));
-  const deviceSPO = parseInt(data.substring(14, 17));
-  const deviceBattery = data.substring(19, 21);
+  const deviceId = data.substring(0, 5);
+  const isCharged = parseInt(data.substring(6, 8));
+  const deviceHearRate = parseInt(data.substring(9, 12));
+  const deviceSPO = parseInt(data.substring(13, 16));
+  const deviceBattery = data.substring(17, 20);
+  const deviceTemp = data.substring(21, 26);
 
   //split the data
   const dataSplited = data.split('|');
@@ -114,13 +123,10 @@ const HomeView = ({
   const formattedHours = hours % 12 || 12;
   const timeString = `${formattedHours}:${minutes}`;
 
-  console.log(allDevices.length);
-
   //CHECK BLUETOOTH STATE
   useEffect(() => {
     const handleBleStateChange = newState => {
       console.log('BLE state changed:', newState);
-
       if (newState === 'PoweredOn') {
         // Start scanning when Bluetooth is in the PoweredOn state
         console.log('BLUETOOTH IS ON');
@@ -132,24 +138,44 @@ const HomeView = ({
         );
       }
     };
-
     // const subscription = bleManager.onStateChange(handleBleStateChange, true);
     const subscription = bleManager.onStateChange(handleBleStateChange, true);
-
     // Cleanup function
     return () => {
       subscription.remove();
     };
   }, [bleManager]);
 
+  useEffect(() => {
+    if (isHistoryVisible == true) {
+      getDevicesHistory();
+    }
+  }, [isHistoryVisible]);
+
+  const getDevicesHistory = async () => {
+    const devices = await AsyncStorage.getItem('devices');
+    if (devices) {
+      setDevicesHistory(JSON.parse(devices));
+    }
+  };
+
+  const reconnectDevice = device => {
+    const cutQR = device.id.substring(3);
+    allDevices.find(item => {
+      const nameSplit = item.name.split('-');
+      const idName = [nameSplit[1]].toString();
+      if (Platform.OS === 'android' && item.id === device.id) {
+        connectToDevice(item);
+      } else if (Platform.OS === 'ios' && idName === cutQR) {
+        connectToDevice(item);
+      }
+    });
+    setIsHistoryVisible(false);
+  };
+
   //Hide Modal
   const hideModal = () => {
     setIsModalVisible(false);
-  };
-
-  //HIDE CLASS MODAL
-  const hideGetClass = () => {
-    setGetClassVisible(false);
   };
 
   //Open Modal, pass connection function
@@ -162,17 +188,6 @@ const HomeView = ({
     });
   };
 
-  //OPEN GetClassModel
-  const openGetClassModel = () => {
-    setGetClassVisible(true);
-  };
-
-  //NAVIGATE TO GROUP
-  const handleGrouping = () => {
-    // navigation.navigate('GroupDevice');
-    navigation.navigate('Group');
-  };
-
   //Calories - Donut chart
   const halfCircle = radius + strokeWidth;
   const circleCirumference = 2 * Math.PI * radius;
@@ -182,76 +197,8 @@ const HomeView = ({
   const strokeDashoffset =
     circleCirumference - (circleCirumference * maxPerc) / 100;
 
-  //HEATMAP
-  const stringArray = [
-    '10.80059,106.74493',
-    '10.800520,106.74490',
-    '10.800556,106.74493',
-    '10.800463,106.74483',
-    '10.800530,106.74483',
-    '10.800430,106.74483',
-  ];
-  const heatmapCoordinates = stringArray.map(coordinate => {
-    const [latitude, longitude] = coordinate
-      .split(',')
-      .map(c => parseFloat(c.trim()));
-    return {latitude, longitude};
-  });
-
-  const handleDisconnect = () => {
-    Alert.alert('Warining!', 'Do you want to disconnect ?', [
-      {
-        text: 'Cancel',
-        onPress: () => console.log('Cancel disconnect'),
-      },
-      {
-        text: 'OK',
-        onPress: () => disconnectFromDevice(),
-      },
-    ]);
-  };
-
-  const handleClearData = () => {
-    Alert.alert('Warning!', 'Do you want to clear all data ?', [
-      {
-        text: 'Cancel',
-        onPress: () => console.log('Cancel clear data'),
-      },
-      {
-        text: 'OK',
-        onPress: () => sendDataToRXCharacteristic('delete'),
-      },
-    ]);
-  };
-
-  const handleClassId = classId => {
-    setClassIdChose(classId);
-  };
-
-  const handleClassName = className => {
-    setClassNameChose(className);
-  };
-  const handleGetStudent = () => {
-    if (classIdChose === '') {
-      Alert.alert(
-        'Warning',
-        "You haven't selected your class/club. \n Please disconnect from the current device and choose your class/club first",
-      );
-    } else {
-      disconnectFromDevice();
-      navigation.navigate('Student', {
-        classIdChose,
-        time,
-        steps,
-        calories,
-        acceleration,
-        distance,
-        jumps,
-        run_avg,
-        run_max,
-      });
-      // console.log(classIdChose);
-    }
+  const handleNavigateSetting = () => {
+    navigation.navigate('SettingView');
   };
 
   return (
@@ -267,17 +214,68 @@ const HomeView = ({
                 ? {backgroundColor: APP_COLORS.pink}
                 : {backgroundColor: APP_COLORS.darkblue},
             ]}>
-            {/* <Image source={BackGround} style={home_styles.welcome__bg} /> */}
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                zIndex: 1,
+                top: 10,
+                right: 10,
+              }}
+              onPress={() => setIsHistoryVisible(true)}>
+              <View
+                style={[
+                  {
+                    backgroundColor:
+                      period == 'AM' ? APP_COLORS.darkblue : APP_COLORS.pink,
+                    width: res * 0.05,
+                    height: res * 0.05,
+                    borderRadius: (res * 0.09) / 2,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  },
+                ]}>
+                <Icon
+                  name="history"
+                  style={{
+                    color:
+                      period == 'AM' ? APP_COLORS.pink : APP_COLORS.darkblue,
+                    fontSize: res * 0.03,
+                  }}
+                />
+              </View>
+            </TouchableOpacity>
+            {/* <TouchableOpacity
+              style={{
+                position: 'absolute',
+                zIndex: 1,
+                top: 10,
+                right: 10,
+              }}
+              onPress={() => handleNavigateSetting()}>
+              <View
+                style={[
+                  {
+                    backgroundColor:
+                      period == 'AM' ? APP_COLORS.darkblue : APP_COLORS.pink,
+                    width: res * 0.05,
+                    height: res * 0.05,
+                    borderRadius: (res * 0.09) / 2,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  },
+                ]}>
+                <Icon
+                  name="settings"
+                  style={{
+                    color:
+                      period == 'AM' ? APP_COLORS.pink : APP_COLORS.darkblue,
+                    fontSize: res * 0.03,
+                  }}
+                />
+              </View>
+            </TouchableOpacity> */}
             <View style={home_styles.content}>
               <View style={home_styles.welcome__container}>
-                {/* <View style={[home_styles.welcome__time]}>
-                  <View style={home_styles.time__welcome__container}>
-                    <Text style={[home_styles.time__welcome, home_styles.highlight]}>
-                      {timeString}
-                    </Text>
-                  </View>
-                  <Text style={home_styles.time__welcome_period}>{period}</Text>
-                </View> */}
                 <View
                   style={{
                     position: 'absolute',
@@ -285,14 +283,17 @@ const HomeView = ({
                     width: res * 0.35,
                   }}>
                   <View style={home_styles.start}>
-                    <Text
-                      style={
-                        period == 'AM'
-                          ? [home_styles.logo__name]
-                          : [home_styles.logo__name_night]
-                      }>
-                      Take Care of
-                    </Text>
+                    <TouchableOpacity
+                      onPress={async () => AsyncStorage.clear()}>
+                      <Text
+                        style={
+                          period == 'AM'
+                            ? [home_styles.logo__name]
+                            : [home_styles.logo__name_night]
+                        }>
+                        Take Care of
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={home_styles.end}>
                     <Text
@@ -382,54 +383,69 @@ const HomeView = ({
                 period == 'AM'
                   ? {backgroundColor: APP_COLORS.darkblue}
                   : {backgroundColor: APP_COLORS.pink},
-              ]}>
-              {/* <View style={home_styles.welcome__btn}>
-                <TouchableOpacity
-                  style={[
-                    home_styles.side__box,
-                    period == 'AM'
-                      ? {backgroundColor: APP_COLORS.pink}
-                      : {backgroundColor: APP_COLORS.darkblue},
-                  ]}
-                  onPress={() => {
-                    console.log('pressed');
-                  }}>
-                  <Icon
-                    style={[
-                      home_styles.side__icon,
-                      period == 'AM'
-                        ? {color: APP_COLORS.darkblue}
-                        : {color: APP_COLORS.pink},
-                    ]}
-                    name="wechat"
-                  />
-                </TouchableOpacity>
-              </View> */}
-              {/* <View></View>
-              <View style={home_styles.welcome__btn}>
-                <TouchableOpacity
-                  style={[
-                    home_styles.side__box,
-                    period == 'AM'
-                      ? {backgroundColor: APP_COLORS.pink}
-                      : {backgroundColor: APP_COLORS.darkblue},
-                  ]}
-                  onPress={handleGrouping}>
-                  <Icon
-                    style={[
-                      home_styles.side__icon,
-                      period == 'AM'
-                        ? {color: APP_COLORS.darkblue}
-                        : {color: APP_COLORS.pink},
-                    ]}
-                    name="groups"
-                  />
-                </TouchableOpacity>
-              </View> */}
-            </View>
+              ]}></View>
           </View>
         )}
       </View>
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={isHistoryVisible}
+        onRequestClose={() => setIsHistoryVisible(false)}>
+        <TouchableOpacity
+          style={{flex: 1}}
+          activeOpacity={1}
+          onPressOut={() => setIsHistoryVisible(false)}>
+          <View
+            style={{
+              backgroundColor:
+                period == 'AM' ? APP_COLORS.darkblue : APP_COLORS.pink,
+              position: 'absolute',
+              top: 50,
+              right: 10,
+              width: res / 4.5,
+              maxHeight: 150,
+              borderRadius: 8,
+              padding: 10,
+              shadowColor:
+                period == 'AM' ? APP_COLORS.darkblue : APP_COLORS.pink,
+              shadowOffset: {width: 0, height: 2},
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+              elevation: 5,
+            }}>
+            <Text
+              style={{
+                color: period == 'PM' ? APP_COLORS.darkblue : APP_COLORS.pink,
+              }}>
+              {devicesHistory.length > 0 ? 'Connected devices:' : 'No devices'}
+            </Text>
+            <FlatList
+              data={devicesHistory}
+              keyExtractor={item => item.id}
+              renderItem={({item}) => {
+                return (
+                  <TouchableOpacity
+                    onPress={() => reconnectDevice(item)}
+                    style={{
+                      padding: 10,
+                    }}>
+                    <Text
+                      style={{
+                        color:
+                          period == 'PM'
+                            ? APP_COLORS.darkblue
+                            : APP_COLORS.pink,
+                      }}>
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
       <DeviceModal
         closeModal={hideModal}
         visible={isModalVisible}
@@ -440,12 +456,12 @@ const HomeView = ({
         stopScan={stopDevice}
         clearDevice={clearDevices}
       />
-      <GetClassesModel
+      {/* <GetClassesModel
         closeModal={hideGetClass}
         visible={isGetClassVisibal}
         sendClassId={handleClassId}
         sendClassName={handleClassName}
-      />
+      /> */}
     </View>
   );
 };

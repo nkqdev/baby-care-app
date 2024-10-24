@@ -41,10 +41,9 @@ const DeviceModal = props => {
     return () => clearTimeout(timeout);
   }, [qrcode]);
 
-
   const handleQRCodeScanned = useCallback(
     async ({data}) => {
-      console.log('scanned')
+      console.log('scanned');
       setQRCode(data);
       setScanned(true);
       await connectToBLEDevice(
@@ -69,6 +68,18 @@ const DeviceModal = props => {
 
   return (
     <Modal animationType="slide" transparent={false} visible={visible}>
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          zIndex: 1,
+          top: 20,
+          left: 20,
+        }}
+        onPress={() => closeModal()}>
+        <View style={[styles.modal__back_btn, {paddingLeft: 8}]}>
+          <Icon name="arrow-back-ios" style={styles.modal__alert_btn_icon} />
+        </View>
+      </TouchableOpacity>
       <SafeAreaView>
         <QRCodeScanner
           onRead={handleQRCodeScanned}
@@ -143,11 +154,19 @@ const styles = StyleSheet.create({
   },
   modal__alert_text: {
     fontSize: res * 0.035,
-    color: '#4CAF50',
+    color: APP_COLORS.pink,
     fontWeight: '600',
   },
   modal__alert_btn: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: APP_COLORS.darkblue,
+    width: res * 0.09,
+    height: res * 0.09,
+    borderRadius: (res * 0.09) / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modal__back_btn: {
+    backgroundColor: APP_COLORS.darkblue,
     width: res * 0.09,
     height: res * 0.09,
     borderRadius: (res * 0.09) / 2,
@@ -155,7 +174,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modal__alert_btn_icon: {
-    color: '#FFF',
+    color: APP_COLORS.pink,
     fontSize: res * 0.04,
   },
 });

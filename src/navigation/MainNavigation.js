@@ -8,6 +8,7 @@ import Success from '../components/Success';
 import TakeQRCode from '../views/group/TakeQRCode';
 import ChooseBaby from '../views/group/ChooseBaby';
 import GetBaby from '../views/submit/GetBaby';
+import SettingView from '../views/setting/setting_view';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +26,7 @@ function MainNavigation() {
         <Stack.Screen name="TakeStudent" component={ChooseBaby} />
         <Stack.Screen name="Student" component={GetBaby} />
         <Stack.Screen name="Group" component={Group} />
+        <Stack.Screen name="SettingView" component={SettingView} />
       </Stack.Navigator>
     </NavigationContainer>
   );

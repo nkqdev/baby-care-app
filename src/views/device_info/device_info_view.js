@@ -4,8 +4,10 @@ import {
   View,
   Dimensions,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import useBLE from '../../services/useBLE';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {APP_COLORS} from '../../themes/colors';
@@ -17,26 +19,14 @@ export default function DeviceInfoView() {
   const {disconnectFromDevice, data} = useBLE();
   const {deviceData} = useSelector(state => state.deviceInfo);
 
-  var deviceId = deviceData.substring(0, 6) || 0;
-  var deviceTemp = deviceData.substring(22, 27) || 0;
-  var deviceHearRate = parseInt(deviceData.substring(10, 13)) || 0;
-  var deviceSPO = parseInt(deviceData.substring(14, 17)) || 0;
-  var deviceBattery = deviceData.substring(19, 21) || 0;
+  const deviceId = deviceData.substring(0, 5);
+  const isCharged = parseInt(deviceData.substring(6, 8)) == 1 ? true : false;
+  const deviceHearRate = parseInt(deviceData.substring(9, 12));
+  const deviceSPO = parseInt(deviceData.substring(13, 16));
+  const deviceBattery = deviceData.substring(17, 20);
+  const deviceTemp = deviceData.substring(21, 26);
 
-  console.log('data main: ' + deviceData);
-
-  const getRandomTemperature = () => {
-    const min = 35;
-    const max = 38;
-    if (deviceHearRate == 0) {
-      return 0;
-    } else {
-      const randomTemp = Math.random() * (max - min) + min;
-      return Math.round(randomTemp * 100) / 100;
-    }
-  };
-
-  var randomTemp = getRandomTemperature();
+  console.log(isCharged == 1);
 
   return (
     <View style={[styles.container, {backgroundColor: APP_COLORS.background}]}>
@@ -47,14 +37,27 @@ export default function DeviceInfoView() {
               <Text style={styles.header__id_text}>{deviceId}</Text>
             </View>
             <View style={styles.header__bat}>
-              {parseInt(deviceBattery) >= 50 ? (
+              {isCharged ? (
+                <Text style={styles.header_charge_text}>Charging</Text>
+              ) : null}
+              {parseInt(deviceBattery) >= 100 ? (
                 <>
                   <Icon
                     name="battery-full"
                     style={[styles.header__bat_text, styles.full]}
                   />
                   <Text style={[styles.header__bat_text, styles.full]}>
-                    {deviceBattery}%
+                    100%
+                  </Text>
+                </>
+              ) : parseInt(deviceBattery) >= 50 ? (
+                <>
+                  <Icon
+                    name="battery-full"
+                    style={[styles.header__bat_text, styles.full]}
+                  />
+                  <Text style={[styles.header__bat_text, styles.full]}>
+                    {deviceBattery.substring(1, 3)}%
                   </Text>
                 </>
               ) : (
@@ -64,7 +67,7 @@ export default function DeviceInfoView() {
                     style={[styles.header__bat_text, styles.low]}
                   />
                   <Text style={[styles.header__bat_text, styles.low]}>
-                    {deviceBattery}%
+                    {deviceBattery.substring(1, 3)}%
                   </Text>
                 </>
               )}
@@ -74,13 +77,14 @@ export default function DeviceInfoView() {
             {deviceHearRate > 99 ? (
               <View style={[styles.stat__heart_box, styles.warning]}>
                 <View style={styles.stat__heart_healine}>
-                  <Icon name="monitor-heart" style={styles.stat__heart_icon} />
+                  <Icon
+                    name="monitor-heart"
+                    style={[styles.stat__heart_icon, {color: '#fff'}]}
+                  />
                   <Text style={styles.stat__heart_text}>Heart Rate</Text>
                 </View>
                 <View style={styles.stat__heart_info}>
-                  <Text style={styles.stat__heart_num}>
-                    {deviceHearRate != 'NaN' ? deviceHearRate : 0}
-                  </Text>
+                  <Text style={styles.stat__heart_num}>{deviceHearRate}</Text>
                   <Text style={styles.stat__heart_unit}>bpm</Text>
                 </View>
               </View>
@@ -88,11 +92,15 @@ export default function DeviceInfoView() {
               <View style={styles.stat__heart_box}>
                 <View style={styles.stat__heart_healine}>
                   <Icon name="monitor-heart" style={styles.stat__heart_icon} />
-                  <Text style={styles.stat__heart_text}>Heart Rate</Text>
+                  <Text style={styles.disconnect__text}>Heart Rate</Text>
                 </View>
                 <View style={styles.stat__heart_info}>
                   <Text style={styles.stat__heart_num}>
-                    {deviceHearRate != 'NaN' ? deviceHearRate : 0}
+                    {deviceHearRate && deviceHearRate != 'NaN' ? (
+                      deviceHearRate
+                    ) : (
+                      <ActivityIndicator color={APP_COLORS.pink} />
+                    )}
                   </Text>
                   <Text style={styles.stat__heart_unit}>bpm</Text>
                 </View>
@@ -100,21 +108,42 @@ export default function DeviceInfoView() {
             )}
           </View>
           <View style={[styles.stat__container, styles.divide]}>
-            <View style={styles.stat__divide_box}>
-              <View style={styles.stat__divide_headline}>
-                <Icon
-                  style={[styles.stat__divide_icon, styles.blood]}
-                  name="bloodtype"
-                />
-                <Text style={styles.stat__divide_name}>Sp02</Text>
+            {deviceSPO < 90 && deviceSPO != 0 ? (
+              <View style={[styles.stat__divide_box, styles.warning]}>
+                <View style={styles.stat__divide_headline}>
+                  <Icon
+                    style={[styles.stat__divide_icon, styles.blood]}
+                    name="bloodtype"
+                  />
+                  <Text style={styles.stat__divide_name}>Sp02</Text>
+                </View>
+                <View style={styles.stat__divide_info}>
+                  <Text style={styles.stat__divide_num}>{deviceSPO}</Text>
+                  <Text style={styles.stat__divide_unit}>%</Text>
+                </View>
               </View>
-              <View style={styles.stat__divide_info}>
-                <Text style={styles.stat__divide_num}>
-                  {deviceSPO != 'NaN' ? deviceSPO : 0}
-                </Text>
-                <Text style={styles.stat__divide_unit}>%</Text>
+            ) : (
+              <View style={styles.stat__divide_box}>
+                <View style={styles.stat__divide_headline}>
+                  <Icon
+                    style={[styles.stat__divide_icon, styles.blood]}
+                    name="bloodtype"
+                  />
+                  <Text style={styles.stat__divide_name}>Sp02</Text>
+                </View>
+                <View style={styles.stat__divide_info}>
+                  <Text style={styles.stat__divide_num}>
+                    {deviceSPO && deviceSPO != 'NaN' ? (
+                      deviceSPO
+                    ) : (
+                      <ActivityIndicator color={APP_COLORS.pink} />
+                    )}
+                  </Text>
+                  <Text style={styles.stat__divide_unit}>%</Text>
+                </View>
               </View>
-            </View>
+            )}
+
             {deviceTemp > 38 ? (
               <View style={[styles.stat__divide_box, styles.warning]}>
                 <View style={styles.stat__divide_headline}>
@@ -125,8 +154,7 @@ export default function DeviceInfoView() {
                   <Text style={[styles.stat__divide_name]}>Body Temp</Text>
                 </View>
                 <View style={styles.stat__divide_info}>
-                  <Text style={styles.stat__divide_num}>{randomTemp}</Text>
-                  {/* <Text style={styles.stat__divide_num}>{deviceTemp}</Text> */}
+                  <Text style={styles.stat__divide_num}>{deviceTemp}</Text>
                   <Text style={styles.stat__divide_unit}>Celcius</Text>
                 </View>
               </View>
@@ -141,24 +169,32 @@ export default function DeviceInfoView() {
                 </View>
                 <View style={styles.stat__divide_info}>
                   <Text style={styles.stat__divide_num}>
-                    {deviceHearRate != '' ||
-                    deviceHearRate != ' NaN' ||
-                    deviceHearRate != '0'
-                      ? randomTemp
-                      : 0}
+                    {deviceHearRate && deviceHearRate != ' NaN' ? (
+                      deviceTemp
+                    ) : (
+                      <ActivityIndicator color={APP_COLORS.pink} />
+                    )}
                   </Text>
-                  {/* <Text style={styles.stat__divide_num}>{deviceTemp}</Text> */}
                   <Text style={styles.stat__divide_unit}>Celcius</Text>
                 </View>
               </View>
             )}
           </View>
           <View style={styles.measure}>
-            <Text style={styles.measure__text}>measuring 5s ago</Text>
+            <Text style={styles.measure__text}>
+              process will take a few minutes
+            </Text>
           </View>
           <TouchableOpacity
             onPress={() => {
-              disconnectFromDevice();
+              Alert.alert('Lưu ý', 'Bạn có muốn ngắt kết nối với thiết bị', [
+                {
+                  text: 'Có',
+                  style: 'destructive',
+                  onPress: () => disconnectFromDevice(),
+                },
+                {text: 'Không'},
+              ]);
             }}
             style={styles.disconnect__container}>
             <Text style={styles.disconnect__text}>disconnect</Text>
@@ -216,8 +252,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: res * 0.03,
   },
+  header_charge_text: {
+    color: '#FF9800',
+    fontWeight: '600',
+    fontSize: res * 0.015,
+  },
   header__bat: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   header__bat_text: {
     fontWeight: '900',

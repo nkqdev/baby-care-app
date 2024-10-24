@@ -93,6 +93,10 @@ function BluetoothFunctional() {
         // Discover services and characteristics
         await device.discoverAllServicesAndCharacteristics();
 
+        // Request MTU size
+        const mtuSize = 256; // Set desired MTU size
+        await bleManager.requestMTUForDevice(device.id, mtuSize); // Use bleManager to request MTU
+
         console.log('CONNECT SUCCESSFULLY');
         setTimeout(() => {
           startStreamingData(device);

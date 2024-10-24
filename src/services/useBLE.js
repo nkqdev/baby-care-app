@@ -5,6 +5,7 @@ import {BleManager} from 'react-native-ble-plx';
 import {atob, btoa} from 'react-native-quick-base64';
 import {useDispatch, useSelector} from 'react-redux';
 import {setDeviceData, setDeviceInfo} from '../redux/slices/deviceInfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const IOT__UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const IOT__TX__CHARACTERISTIC = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 const IOT__RX__CHARACTERISTIC = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
@@ -22,9 +23,9 @@ function useBLE() {
   const initializeBleManager = () => {
     // Kiểm tra nếu BleManager đã bị hủy thì khởi tạo lại
     if (bleManager === null || bleManager === undefined) {
-        bleManager = new BleManager();
+      bleManager = new BleManager();
     }
-}
+  };
 
   const requestPermissions = async cb => {
     if (Platform.OS === 'android') {
@@ -72,19 +73,55 @@ function useBLE() {
     bleManager.stopDeviceScan();
   };
 
+  // const connectToDevice = async device => {
+  //   try {
+  //     console.log('CONNECTING TO DEVICE:', device.id);
+  //     await bleManager.connectToDevice(device.id);
+  //     // Stop device scan (assuming startScan and stopScan are functions in your component)
+  //     stopScan();
+  //     // Discover services and characteristics
+  //     await device.discoverAllServicesAndCharacteristics();
+  //     // Start streaming data (assuming startStreamingData is a function in your component)
+  //     startStreamingData(device);
+  //     setConnectedDevice(device);
+  //     dispatch(setDeviceInfo(device.id));
+  //     console.log('CONNECT SUCCESSFULLY');
+  //   } catch (error) {
+  //     console.error('Failed to connect to BLE device:', error);
+  //     // Log additional information about the device
+  //     console.log('Device ID:', device.id);
+  //     // Handle the error, e.g., show an alert or set an error state
+  //   }
+  // };
+
   const connectToDevice = async device => {
     try {
-      console.log('CONNECTING TO DEVICE:', device.id);
-      await bleManager.connectToDevice(device.id);
-      // Stop device scan (assuming startScan and stopScan are functions in your component)
-      stopScan();
-      // Discover services and characteristics
-      await device.discoverAllServicesAndCharacteristics();
-      // Start streaming data (assuming startStreamingData is a function in your component)
-      startStreamingData(device);
-      setConnectedDevice(device);
-      dispatch(setDeviceInfo(device.id));
-      console.log('CONNECT SUCCESSFULLY');
+      console.log('CONNECTING TO DEVICE:', device.name);
+      const devicesListJSON = await AsyncStorage.getItem('devices');
+      const devicesList = devicesListJSON ? JSON.parse(devicesListJSON) : [];
+      const deviceExists = devicesList.some(
+        existingDevice => existingDevice.name === device.name,
+      );
+      await bleManager
+        .connectToDevice(device.id)
+        .then(() => stopScan())
+        .then(async () => {
+          setConnectedDevice(device);
+          dispatch(setDeviceInfo(device.id));
+          await device.discoverAllServicesAndCharacteristics();
+          const mtuSize = 256; // Set desired MTU size
+          await bleManager.requestMTUForDevice(device.id, mtuSize); // Use bleManager to request MTU
+
+          console.log('Requested MTU Size:', mtuSize);
+          startStreamingData(device);
+          if (!deviceExists) {
+            const updatedDevicesList = [...devicesList, device];
+            await AsyncStorage.setItem(
+              'devices',
+              JSON.stringify(updatedDevicesList),
+            );
+          }
+        });
     } catch (error) {
       console.error('Failed to connect to BLE device:', error);
       // Log additional information about the device
@@ -139,9 +176,9 @@ function useBLE() {
   const disconnectFromDevice = () => {
     try {
       console.log('DISCONNECTED');
-      bleManager.cancelDeviceConnection(deviceInfo).then(result => {
-        console.log(result);
+      bleManager.cancelDeviceConnection(deviceInfo).then(() => {
         dispatch(setDeviceInfo(''));
+        dispatch(setDeviceData(''));
         setConnectedDevice('');
         setData('');
       });
@@ -160,7 +197,7 @@ function useBLE() {
       return;
     }
     const rawData = atob(characteristic.value);
-    console.log(rawData);
+    console.log('Raw data: ' + rawData);
     dispatch(setDeviceData(rawData));
     setData(rawData);
   };
@@ -177,6 +214,7 @@ function useBLE() {
       console.log('No Device Connected');
     }
   };
+
   const sendDataToRXCharacteristic = async data => {
     console.log('SENDING');
     if (connectedDevice) {
